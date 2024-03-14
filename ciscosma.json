@@ -17,7 +17,26 @@
     "main_module": "ciscosma_connector.py",
     "min_phantom_version": "6.1.1.211",
     "app_wizard_version": "1.0.0",
-    "configuration": {},
+    "configuration": {
+        "username": {
+            "data_type": "string",
+            "order": 0,
+            "description": "Cisco SMA Username",
+            "required": true
+        },
+        "password": {
+            "data_type": "password",
+            "order": 1,
+            "description": "Cisco SMA Password",
+            "required": true
+        },
+        "host": {
+            "data_type": "string",
+            "order": 2,
+            "description": "Cisco SMA Host",
+            "required": true
+        }
+    },
     "actions": [
         {
             "action": "test connectivity",

@@ -7,16 +7,18 @@
 # Python 3 Compatibility imports
 from __future__ import print_function, unicode_literals
 
+import base64
+import json
+
 # Phantom App imports
 import phantom.app as phantom
-from phantom.base_connector import BaseConnector
+import requests
+from bs4 import BeautifulSoup
 from phantom.action_result import ActionResult
+from phantom.base_connector import BaseConnector
 
 # Usage of the consts file is recommended
-# from ciscosma_consts import *
-import requests
-import json
-from bs4 import BeautifulSoup
+from ciscosma_consts import *
 
 
 class RetVal(tuple):
@@ -38,6 +40,8 @@ class CiscoSmaConnector(BaseConnector):
         # Do note that the app json defines the asset config, so please
         # modify this as you deem fit.
         self._base_url = None
+        self._username = None
+        self._password = None
 
     def _process_empty_response(self, response, action_result):
         if response.status_code == 200:
@@ -46,7 +50,8 @@ class CiscoSmaConnector(BaseConnector):
         return RetVal(
             action_result.set_status(
                 phantom.APP_ERROR, "Empty response and no information in the header"
-            ), None
+            ),
+            None,
         )
 
     def _process_html_response(self, response, action_result):
@@ -56,15 +61,17 @@ class CiscoSmaConnector(BaseConnector):
         try:
             soup = BeautifulSoup(response.text, "html.parser")
             error_text = soup.text
-            split_lines = error_text.split('\n')
+            split_lines = error_text.split("\n")
             split_lines = [x.strip() for x in split_lines if x.strip()]
-            error_text = '\n'.join(split_lines)
+            error_text = "\n".join(split_lines)
         except:
             error_text = "Cannot parse error details"
 
-        message = "Status Code: {0}. Data from server:\n{1}\n".format(status_code, error_text)
+        message = "Status Code: {0}. Data from server:\n{1}\n".format(
+            status_code, error_text
+        )
 
-        message = message.replace(u'{', '{{').replace(u'}', '}}')
+        message = message.replace("{", "{{").replace("}", "}}")
         return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
 
     def _process_json_response(self, r, action_result):
@@ -74,8 +81,10 @@ class CiscoSmaConnector(BaseConnector):
         except Exception as e:
             return RetVal(
                 action_result.set_status(
-                    phantom.APP_ERROR, "Unable to parse JSON response. Error: {0}".format(str(e))
-                ), None
+                    phantom.APP_ERROR,
+                    "Unable to parse JSON response. Error: {0}".format(str(e)),
+                ),
+                None,
             )
 
         # Please specify the status codes here
@@ -84,30 +93,29 @@ class CiscoSmaConnector(BaseConnector):
 
         # You should process the error returned in the json
         message = "Error from server. Status Code: {0} Data from server: {1}".format(
-            r.status_code,
-            r.text.replace(u'{', '{{').replace(u'}', '}}')
+            r.status_code, r.text.replace("{", "{{").replace("}", "}}")
         )
 
         return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
 
     def _process_response(self, r, action_result):
         # store the r_text in debug data, it will get dumped in the logs if the action fails
-        if hasattr(action_result, 'add_debug_data'):
-            action_result.add_debug_data({'r_status_code': r.status_code})
-            action_result.add_debug_data({'r_text': r.text})
-            action_result.add_debug_data({'r_headers': r.headers})
+        if hasattr(action_result, "add_debug_data"):
+            action_result.add_debug_data({"r_status_code": r.status_code})
+            action_result.add_debug_data({"r_text": r.text})
+            action_result.add_debug_data({"r_headers": r.headers})
 
         # Process each 'Content-Type' of response separately
 
         # Process a json response
-        if 'json' in r.headers.get('Content-Type', ''):
+        if "json" in r.headers.get("Content-Type", ""):
             return self._process_json_response(r, action_result)
 
         # Process an HTML response, Do this no matter what the api talks.
         # There is a high chance of a PROXY in between phantom and the rest of
         # world, in case of errors, PROXY's return HTML, this function parses
         # the error and adds it to the action_result.
-        if 'html' in r.headers.get('Content-Type', ''):
+        if "html" in r.headers.get("Content-Type", ""):
             return self._process_html_response(r, action_result)
 
         # it's not content-type that is to be parsed, handle an empty response
@@ -116,8 +124,7 @@ class CiscoSmaConnector(BaseConnector):
 
         # everything else is actually an error at this point
         message = "Can't process response from server. Status Code: {0} Data from server: {1}".format(
-            r.status_code,
-            r.text.replace('{', '{{').replace('}', '}}')
+            r.status_code, r.text.replace("{", "{{").replace("}", "}}")
         )
 
         return RetVal(action_result.set_status(phantom.APP_ERROR, message), None)
@@ -133,8 +140,10 @@ class CiscoSmaConnector(BaseConnector):
             request_func = getattr(requests, method)
         except AttributeError:
             return RetVal(
-                action_result.set_status(phantom.APP_ERROR, "Invalid method: {0}".format(method)),
-                resp_json
+                action_result.set_status(
+                    phantom.APP_ERROR, "Invalid method: {0}".format(method)
+                ),
+                resp_json,
             )
 
         # Create a URL to connect to
@@ -144,17 +153,42 @@ class CiscoSmaConnector(BaseConnector):
             r = request_func(
                 url,
                 # auth=(username, password),  # basic authentication
-                verify=config.get('verify_server_cert', False),
+                verify=config.get("verify_server_cert", False),
                 **kwargs
             )
         except Exception as e:
             return RetVal(
                 action_result.set_status(
-                    phantom.APP_ERROR, "Error Connecting to server. Details: {0}".format(str(e))
-                ), resp_json
+                    phantom.APP_ERROR,
+                    "Error Connecting to server. Details: {0}".format(str(e)),
+                ),
+                resp_json,
             )
 
         return self._process_response(r, action_result)
+
+    def _b64_encode(self, s):
+        s_utf8 = s.encode("utf-8")
+        base64_encoded = base64.b64encode(s_utf8)
+        return base64_encoded.decode("utf-8")
+
+    def _get_jwt_token(self):
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+
+        payload = json.dumps(
+            {
+                "data": {
+                    "userName": self._b64_encode(self._username),
+                    "passphrase": self._b64_encode(self._password),
+                }
+            }
+        )
+
+        response = requests.request(
+            "POST", self._base_url + GET_JWT_TOKEN, headers=headers, data=payload
+        )
+        jwt_token = response.json().get("data", {}).get("jwtToken")
+        return jwt_token
 
     def _handle_test_connectivity(self, param):
         # Add an action result object to self (BaseConnector) to represent the action for this param
@@ -167,27 +201,22 @@ class CiscoSmaConnector(BaseConnector):
 
         self.save_progress("Connecting to endpoint")
         # make rest call
-        ret_val, response = self._make_rest_call(
-            '/endpoint', action_result, params=None, headers=None
-        )
 
-        if phantom.is_fail(ret_val):
-            # the call to the 3rd party device or service failed, action result should contain all the error details
-            # for now the return is commented out, but after implementation, return from here
-            self.save_progress("Test Connectivity Failed.")
-            # return action_result.get_status()
+        ret = self._get_jwt_token()
+        if ret:
+            # Return success
+            self.save_progress("Test Connectivity Passed")
+            return action_result.set_status(phantom.APP_SUCCESS)
 
-        # Return success
-        # self.save_progress("Test Connectivity Passed")
-        # return action_result.set_status(phantom.APP_SUCCESS)
-
-        # For now return Error with a message, in case of success we don't set the message, but use the summary
-        return action_result.set_status(phantom.APP_ERROR, "Action not yet implemented")
+        self.save_progress("Test Connectivity Failed.")
+        return action_result.set_status(phantom.APP_ERROR, "Test Connectivity Failed")
 
     def _handle_get_messages_details(self, param):
         # Implement the handler here
         # use self.save_progress(...) to send progress messages back to the platform
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.save_progress(
+            "In action handler for: {0}".format(self.get_action_identifier())
+        )
 
         # Add an action result object to self (BaseConnector) to represent the action for this param
         action_result = self.add_action_result(ActionResult(dict(param)))
@@ -202,7 +231,10 @@ class CiscoSmaConnector(BaseConnector):
 
         # make rest call
         ret_val, response = self._make_rest_call(
-            '/sma/api/v2.0/quarantine/messages/details', action_result, params=None, headers=None
+            "/sma/api/v2.0/quarantine/messages/details",
+            action_result,
+            params=None,
+            headers=None,
         )
 
         if phantom.is_fail(ret_val):
@@ -230,7 +262,9 @@ class CiscoSmaConnector(BaseConnector):
     def _handle_delete_messages(self, param):
         # Implement the handler here
         # use self.save_progress(...) to send progress messages back to the platform
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.save_progress(
+            "In action handler for: {0}".format(self.get_action_identifier())
+        )
 
         # Add an action result object to self (BaseConnector) to represent the action for this param
         action_result = self.add_action_result(ActionResult(dict(param)))
@@ -245,7 +279,10 @@ class CiscoSmaConnector(BaseConnector):
 
         # make rest call
         ret_val, response = self._make_rest_call(
-            '/sma/api/v2.0/quarantine/messages', action_result, params=None, headers=None
+            "/sma/api/v2.0/quarantine/messages",
+            action_result,
+            params=None,
+            headers=None,
         )
 
         if phantom.is_fail(ret_val):
@@ -273,7 +310,9 @@ class CiscoSmaConnector(BaseConnector):
     def _handle_release_messages(self, param):
         # Implement the handler here
         # use self.save_progress(...) to send progress messages back to the platform
-        self.save_progress("In action handler for: {0}".format(self.get_action_identifier()))
+        self.save_progress(
+            "In action handler for: {0}".format(self.get_action_identifier())
+        )
 
         # Add an action result object to self (BaseConnector) to represent the action for this param
         action_result = self.add_action_result(ActionResult(dict(param)))
@@ -288,7 +327,10 @@ class CiscoSmaConnector(BaseConnector):
 
         # make rest call
         ret_val, response = self._make_rest_call(
-            '/sma/api/v2.0/quarantine/messages', action_result, params=None, headers=None
+            "/sma/api/v2.0/quarantine/messages",
+            action_result,
+            params=None,
+            headers=None,
         )
 
         if phantom.is_fail(ret_val):
@@ -321,16 +363,16 @@ class CiscoSmaConnector(BaseConnector):
 
         self.debug_print("action_id", self.get_action_identifier())
 
-        if action_id == 'get_messages_details':
+        if action_id == "get_messages_details":
             ret_val = self._handle_get_messages_details(param)
 
-        if action_id == 'delete_messages':
+        if action_id == "delete_messages":
             ret_val = self._handle_delete_messages(param)
 
-        if action_id == 'release_messages':
+        if action_id == "release_messages":
             ret_val = self._handle_release_messages(param)
 
-        if action_id == 'test_connectivity':
+        if action_id == "test_connectivity":
             ret_val = self._handle_test_connectivity(param)
 
         return ret_val
@@ -342,17 +384,9 @@ class CiscoSmaConnector(BaseConnector):
 
         # get the asset config
         config = self.get_config()
-        """
-        # Access values in asset config by the name
-
-        # Required values can be accessed directly
-        required_config_name = config['required_config_name']
-
-        # Optional values should use the .get() function
-        optional_config_name = config.get('optional_config_name')
-        """
-
-        self._base_url = config.get('base_url')
+        self._base_url = config.get('host')
+        self._username = config.get('username')
+        self._password = config.get('password')
 
         return phantom.APP_SUCCESS
 
@@ -367,9 +401,9 @@ def main():
 
     argparser = argparse.ArgumentParser()
 
-    argparser.add_argument('input_test_json', help='Input Test JSON file')
-    argparser.add_argument('-u', '--username', help='username', required=False)
-    argparser.add_argument('-p', '--password', help='password', required=False)
+    argparser.add_argument("input_test_json", help="Input Test JSON file")
+    argparser.add_argument("-u", "--username", help="username", required=False)
+    argparser.add_argument("-p", "--password", help="password", required=False)
 
     args = argparser.parse_args()
     session_id = None
@@ -381,28 +415,29 @@ def main():
 
         # User specified a username but not a password, so ask
         import getpass
+
         password = getpass.getpass("Password: ")
 
     if username and password:
         try:
-            login_url = CiscoSmaConnector._get_phantom_base_url() + '/login'
+            login_url = CiscoSmaConnector._get_phantom_base_url() + "/login"
 
             print("Accessing the Login page")
             r = requests.get(login_url, verify=False)
-            csrftoken = r.cookies['csrftoken']
+            csrftoken = r.cookies["csrftoken"]
 
             data = dict()
-            data['username'] = username
-            data['password'] = password
-            data['csrfmiddlewaretoken'] = csrftoken
+            data["username"] = username
+            data["password"] = password
+            data["csrfmiddlewaretoken"] = csrftoken
 
             headers = dict()
-            headers['Cookie'] = 'csrftoken=' + csrftoken
-            headers['Referer'] = login_url
+            headers["Cookie"] = "csrftoken=" + csrftoken
+            headers["Referer"] = login_url
 
             print("Logging into Platform to get the session id")
             r2 = requests.post(login_url, verify=False, data=data, headers=headers)
-            session_id = r2.cookies['sessionid']
+            session_id = r2.cookies["sessionid"]
         except Exception as e:
             print("Unable to get session id from the platform. Error: " + str(e))
             exit(1)
@@ -416,8 +451,8 @@ def main():
         connector.print_progress_message = True
 
         if session_id is not None:
-            in_json['user_session_token'] = session_id
-            connector._set_csrf_info(csrftoken, headers['Referer'])
+            in_json["user_session_token"] = session_id
+            connector._set_csrf_info(csrftoken, headers["Referer"])
 
         ret_val = connector._handle_action(json.dumps(in_json), None)
         print(json.dumps(json.loads(ret_val), indent=4))
@@ -425,5 +460,5 @@ def main():
     exit(0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
