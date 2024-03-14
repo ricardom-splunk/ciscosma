@@ -40,6 +40,8 @@ class CiscoSmaConnector(BaseConnector):
         # Do note that the app json defines the asset config, so please
         # modify this as you deem fit.
         self._base_url = None
+        self._username = None
+        self._password = None
 
     def _process_empty_response(self, response, action_result):
         if response.status_code == 200:
@@ -176,8 +178,8 @@ class CiscoSmaConnector(BaseConnector):
         payload = json.dumps(
             {
                 "data": {
-                    "userName": self._b64_encode(self.username),
-                    "passphrase": self._b64_encode(self.password),
+                    "userName": self._b64_encode(self._username),
+                    "passphrase": self._b64_encode(self._password),
                 }
             }
         )
@@ -185,7 +187,7 @@ class CiscoSmaConnector(BaseConnector):
         response = requests.request(
             "POST", self._base_url + GET_JWT_TOKEN, headers=headers, data=payload
         )
-        jwt_token = response.json().get("data").get("jwtToken")
+        jwt_token = response.json().get("data", {}).get("jwtToken")
         return jwt_token
 
     def _handle_test_connectivity(self, param):
@@ -382,17 +384,9 @@ class CiscoSmaConnector(BaseConnector):
 
         # get the asset config
         config = self.get_config()
-        """
-        # Access values in asset config by the name
-
-        # Required values can be accessed directly
-        required_config_name = config['required_config_name']
-
-        # Optional values should use the .get() function
-        optional_config_name = config.get('optional_config_name')
-        """
-
-        self._base_url = config.get("base_url")
+        self._base_url = config.get('host')
+        self._username = config.get('username')
+        self._password = config.get('password')
 
         return phantom.APP_SUCCESS
 
