@@ -11,7 +11,7 @@
     "product_version_regex": ".*",
     "publisher": "Splunk",
     "license": "Copyright (c) Splunk, 2024",
-    "app_version": "1.0.0",
+    "app_version": "1.0.2-fdse",
     "utctime_updated": "2024-03-13T13:28:31.092191Z",
     "package_name": "phantom_ciscosma",
     "main_module": "ciscosma_connector.py",
@@ -50,13 +50,96 @@
             "versions": "EQ(*)"
         },
         {
-            "action": "get_messages_details",
-            "identifier": "get_messages_details",
+            "action": "get_messages",
+            "identifier": "get_messages",
+            "description": "Search Quarantined Messages",
+            "verbose": "Search messages of a message that match multiple attributes (smaApiV20QuarantineMessagesGet)\nhttps://www.cisco.com/c/en/us/td/docs/security/security_management/sma/sma13-0/api_reference_guide/asyncos_api_ref.html#smaApiV20QuarantineMessagesGet",
+            "type": "generic",
+            "read_only": false,
+            "parameters": {
+                "quarantineType": {
+                    "data_type": "string",
+                    "order": 0,
+                    "description": "quarantineType",
+                    "required": true
+                },
+                "startDate": {
+                    "data_type": "string",
+                    "order": 1,
+                    "description": "startDate",
+                    "required": true
+                },
+                "endDate": {
+                    "data_type": "string",
+                    "order": 2,
+                    "description": "endDate",
+                    "required": true
+                },
+                "quarantines": {
+                    "data_type": "string",
+                    "order": 3,
+                    "description": "quarantines",
+                    "required": true
+                },
+                "offset": {
+                    "data_type": "string",
+                    "order": 4,
+                    "description": "offset",
+                    "required": true
+                },
+                "limit": {
+                    "data_type": "string",
+                    "order": 5,
+                    "description": "limit",
+                    "required": true
+                }
+            },
+            "output": [
+                {
+                    "data_path": "action_result.status",
+                    "data_type": "string",
+                    "column_name": "status",
+                    "column_order": 0
+                },
+                {
+                    "data_path": "action_result.message",
+                    "data_type": "string"
+                },
+                {
+                    "data_path": "summary.total_objects",
+                    "data_type": "numeric"
+                },
+                {
+                    "data_path": "summary.total_objects_successful",
+                    "data_type": "numeric"
+                }
+            ],
+            "render": {
+                "type": "table"
+            },
+            "versions": "EQ(*)"
+        },
+        {
+            "action": "get_message_details",
+            "identifier": "get_message_details",
             "description": "Get Quarantined Messages Details",
             "verbose": "Retrieve details of a message that match multiple attributes (smaApiV20QuarantineMessagesDetailsGet)\nhttps://www.cisco.com/c/en/us/td/docs/security/security_management/sma/sma13-0/api_reference_guide/asyncos_api_ref.html#smaApiV20QuarantineMessagesDetailsGet",
             "type": "generic",
             "read_only": false,
-            "parameters": {},
+            "parameters": {
+                "quarantineType": {
+                    "data_type": "string",
+                    "order": 0,
+                    "description": "quarantineType",
+                    "required": true
+                },
+                "mid": {
+                    "data_type": "string",
+                    "order": 1,
+                    "description": "message Id",
+                    "required": true
+                }
+            },
             "output": [
                 {
                     "data_path": "action_result.status",
@@ -89,7 +172,26 @@
             "verbose": "Delete messages that match various attribute (smaApiV20QuarantineMessagesDelete)\nhttps://www.cisco.com/c/en/us/td/docs/security/security_management/sma/sma13-0/api_reference_guide/asyncos_api_ref.html#smaApiV20QuarantineMessagesDelete",
             "type": "generic",
             "read_only": false,
-            "parameters": {},
+            "parameters": {
+                "quarantineType": {
+                    "data_type": "string",
+                    "order": 0,
+                    "description": "quarantineType",
+                    "required": true
+                },
+                "quarantineName": {
+                    "data_type": "string",
+                    "order":1 ,
+                    "description": "quarantineName",
+                    "required": true
+                },
+                "mids": {
+                    "data_type": "string",
+                    "order":2 ,
+                    "description": "comma-separated message IDs",
+                    "required": true
+                }
+            },
             "output": [
                 {
                     "data_path": "action_result.status",
@@ -122,7 +224,26 @@
             "verbose": "Release messages that match various attribute (smaApiV20QuarantineMessagesPost)\nhttps://www.cisco.com/c/en/us/td/docs/security/security_management/sma/sma13-0/api_reference_guide/asyncos_api_ref.html#smaApiV20QuarantineMessagesPost",
             "type": "generic",
             "read_only": false,
-            "parameters": {},
+            "parameters": {
+                "quarantineType": {
+                    "data_type": "string",
+                    "order": 0,
+                    "description": "quarantineType",
+                    "required": true
+                },
+                "quarantineName": {
+                    "data_type": "string",
+                    "order":1 ,
+                    "description": "quarantineName",
+                    "required": true
+                },
+                "mids": {
+                    "data_type": "string",
+                    "order":2 ,
+                    "description": "comma-separated message IDs",
+                    "required": true
+                }
+            },
             "output": [
                 {
                     "data_path": "action_result.status",
